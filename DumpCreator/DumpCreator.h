@@ -28,8 +28,10 @@ namespace DumpCreatorApp
 		DWORD OnRip(const LPDEBUG_EVENT pDbgEvent) const;
 
 	private:
+		// Full path to the executable.
 		std::wstring m_exePath;
 
+		// Process arguments.
 		std::wstring m_arguments;
 	};
 }

@@ -101,7 +101,7 @@ void DumpCreator::debugLoop(const LPDEBUG_EVENT pDbgEvent) const
 
 			// TODO: stop debugging - always? never? only in some cases?
 			break;
-		default:
+		default:    // ignore other events
 			break;
 		}
 
@@ -145,6 +145,8 @@ DWORD DumpCreator::OnException(const LPDEBUG_EVENT pDbgEvent) const
 		// Handle other exceptions. 
 		break;
 	}
+
+	return DBG_CONTINUE;
 }
 
 DWORD DumpCreator::OnExitProcess(const LPDEBUG_EVENT pDbgEvent) const
