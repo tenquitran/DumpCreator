@@ -15,37 +15,34 @@ DumpCreator::~DumpCreator()
 {
 }
 
-bool DumpCreator::launchProcess(const std::wstring& path, const std::wstring& args)
+bool DumpCreator::launchProcess(const DumpOptions& options)
 {
-	m_exePath   = path;
-	m_arguments = args;
-
-	//WCHAR appPath[] = L"D:\\TestProjects\\ConsoleApp5\\Release\\ConsoleApp5.exe";
+	m_options = options;
 
 	STARTUPINFO si = {};
 	si.cb = sizeof(STARTUPINFO);
-	// ... You can specify the standard input, output and error handles, etc.
+	// ... you can specify standard input, output and error handles, etc.
 
 	PROCESS_INFORMATION pi = {};
 
 	WCHAR *pArgs = nullptr;
 	std::unique_ptr<WCHAR[]> spArgs;
 
-	// If there are process arguments, copy them to the modifiable buffer.
-	if (!m_arguments.empty())
+	// Copy the process arguments, if any, to the modifiable buffer.
+	if (!m_options.m_arguments.empty())
 	{
 		try
 		{
-			spArgs = std::make_unique<WCHAR[]>(m_arguments.length() + 1);
-			//spArgs.reset(std::make_unique<WCHAR[]>(m_arguments.length() + 1));
+			spArgs = std::make_unique<WCHAR[]>(m_options.m_arguments.length() + 1);
 
-			errno_t err = wmemcpy_s(spArgs.get(), m_arguments.length() + 1, m_arguments.c_str(), m_arguments.length());
+			errno_t err = wmemcpy_s(spArgs.get(), m_options.m_arguments.length() + 1,
+									m_options.m_arguments.c_str(), m_options.m_arguments.length());
 			if (0 != err)
 			{
 				std::wcerr << L"Failed to copy process arguments: " << err << '\n';
 				assert(false); return false;
 			}
-			spArgs[m_arguments.length()] = '\0';
+			spArgs[m_options.m_arguments.length()] = '\0';
 
 			pArgs = spArgs.get();
 		}
@@ -56,15 +53,45 @@ bool DumpCreator::launchProcess(const std::wstring& path, const std::wstring& ar
 		}
 	}
 
-	if (!CreateProcess(m_exePath.c_str(), pArgs, nullptr, nullptr, FALSE, DEBUG_PROCESS, nullptr, nullptr, &si, &pi))
+	if (!CreateProcess(m_options.m_exePath.c_str(), pArgs, nullptr, nullptr, FALSE, DEBUG_PROCESS, nullptr, nullptr, &si, &pi))
 	{
-		std::wcerr << L"CreateProcess() failed (" << m_exePath << L"): " << GetLastError() << '\n';
-		assert(false); return false;
+		std::wcerr << L"CreateProcess() failed (" << m_options.m_exePath << L"): " << GetLastError() << '\n';
+		return false;
 	}
 	CHandle hProcess(pi.hProcess);
 	CHandle hThread(pi.hThread);
 
-	std::wcout << L"Process \"" << m_exePath << L"\" launched as a debuggee\n";
+	std::wcout << L"Process \"" << m_options.m_exePath << L"\" launched as a debuggee" << std::endl;
+
+	DEBUG_EVENT dbgEvent = {};
+
+	debugLoop(&dbgEvent);
+
+	return true;
+}
+
+bool DumpCreator::attachToProcess(const DumpOptions& options)
+{
+	m_options = options;
+
+	if (!DebugActiveProcess(options.m_processId))
+	{
+		DWORD err = GetLastError();
+
+		if (ERROR_NOT_SUPPORTED == err)
+		{
+			std::wcerr << L"DebugActiveProcess() failed: " << err << L" (PID = " << options.m_processId << L"). "
+						  L"Please check the bitness of DumpCreator\n";
+		} 
+		else
+		{
+			std::wcerr << L"DebugActiveProcess() failed: " << err << L" (PID = " << options.m_processId << L")\n";
+		}
+		
+		return false;
+	}
+
+	std::wcout << L"Attached for the process (PID = " << options.m_processId << L") for debugging" << std::endl;
 
 	DEBUG_EVENT dbgEvent = {};
 
@@ -75,11 +102,15 @@ bool DumpCreator::launchProcess(const std::wstring& path, const std::wstring& ar
 
 void DumpCreator::debugLoop(const LPDEBUG_EVENT pDbgEvent) const
 {
-	DWORD continueStatus = DBG_CONTINUE;    /* exception continuation */
+	DWORD continueStatus = DBG_CONTINUE;    // exception continuation
 
 	for (;;)
 	{
-		WaitForDebugEvent(pDbgEvent, INFINITE);
+		if (!WaitForDebugEvent(pDbgEvent, INFINITE))
+		{
+			std::wcerr << L"WaitForDebugEvent() failed: " << GetLastError() << '\n';
+			return;
+		}
 
 		// Process the debugging event.
 		switch (pDbgEvent->dwDebugEventCode)
@@ -93,14 +124,18 @@ void DumpCreator::debugLoop(const LPDEBUG_EVENT pDbgEvent) const
 			// Stop debugging.
 			if (!DebugActiveProcessStop(pDbgEvent->dwProcessId))
 			{
-				std::wcerr << L"Failed to stop debugging the process\n";
+				std::wcerr << L"Failed to stop debugging the process (process exit): " << GetLastError() << '\n';
 			}
-			break;
+			return;
 		case RIP_EVENT:
 			continueStatus = OnRip(pDbgEvent);
 
-			// TODO: stop debugging - always? never? only in some cases?
-			break;
+			// Stop debugging, just in case.
+			if (!DebugActiveProcessStop(pDbgEvent->dwProcessId))
+			{
+				std::wcerr << L"Failed to stop debugging the process (RIP event): " << GetLastError() << '\n';
+			}
+			return;
 		default:    // ignore other events
 			break;
 		}
@@ -152,7 +187,7 @@ DWORD DumpCreator::OnException(const LPDEBUG_EVENT pDbgEvent) const
 DWORD DumpCreator::OnExitProcess(const LPDEBUG_EVENT pDbgEvent) const
 {
 	// Displaying the EXE path is not required: this has been done on launch.
-	std::wcout << L"Process exit: " << pDbgEvent->u.ExitProcess.dwExitCode << std::endl;
+	std::wcout << L"Debuggee process exit: " << pDbgEvent->u.ExitProcess.dwExitCode << std::endl;
 
 	return DBG_CONTINUE;
 }

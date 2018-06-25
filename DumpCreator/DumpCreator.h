@@ -12,10 +12,11 @@ namespace DumpCreatorApp
 
 		virtual ~DumpCreator();
 
-		// Launch to the process as a debuggee.
-		// Parameters: path - full path to the executable;
-		//             args - process arguments (can be empty).
-		bool launchProcess(const std::wstring& path, const std::wstring& args);
+		// Launch process as a debuggee.
+		bool launchProcess(const DumpOptions& options);
+
+		// Attach to the existing process.
+		bool attachToProcess(const DumpOptions& options);
 
 	private:
 		// The debugger loop.
@@ -28,10 +29,15 @@ namespace DumpCreatorApp
 		DWORD OnRip(const LPDEBUG_EVENT pDbgEvent) const;
 
 	private:
+#if 1
+		// Debugging options for the process.
+		DumpOptions m_options;
+#else
 		// Full path to the executable.
 		std::wstring m_exePath;
 
 		// Process arguments.
 		std::wstring m_arguments;
+#endif
 	};
 }

@@ -23,4 +23,6 @@
 
 #include <atlbase.h>
 
+#include "DebugMethods.h"
+#include "DumpOptions.h"
 #include "DumpCreator.h"

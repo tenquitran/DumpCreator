@@ -27,6 +27,12 @@
     <ClInclude Include="DumpCreator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DumpOptions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugMethods.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
