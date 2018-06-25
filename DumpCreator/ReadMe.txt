@@ -1,7 +1,5 @@
-Program name: MinidumpCreator
-DumpCreator is a Windows API console application to debug the target program (by launching it or by attaching to it). 
-On an exception or a program failure, creates a minidump.
-Also, logs process and thread exit events (with exit code and other relevant details).
+DumpCreator is a Windows API console application to debug a target program (by launching it or by attaching to its process). 
+On an exception, creates a minidump. Displays the process exit event.
 
 Notes:
 	1) Should run as an Administrator.
